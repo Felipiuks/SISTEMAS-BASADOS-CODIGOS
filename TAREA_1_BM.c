@@ -67,17 +67,22 @@ int main(void)
 	/* Init FSL debug console. */
 	BOARD_InitDebugConsole();
 
-
-	CLOCK_EnableClock(kCLOCK_PortB);
 	CLOCK_EnableClock(kCLOCK_PortA);
+	CLOCK_EnableClock(kCLOCK_PortB);
 	CLOCK_EnableClock(kCLOCK_PortC);
+	CLOCK_EnableClock(kCLOCK_PortE);
 
 	port_pin_config_t config_led =
 	{ kPORT_PullDisable, kPORT_SlowSlewRate, kPORT_PassiveFilterDisable,
 			kPORT_OpenDrainDisable, kPORT_LowDriveStrength, kPORT_MuxAsGpio,
 			kPORT_UnlockRegister, };
 
+	//Led Azul
 	PORT_SetPinConfig(PORTB, 21, &config_led);
+	//Led Rojo
+	PORT_SetPinConfig(PORTB, 22, &config_led);
+	//Led Verde
+	PORT_SetPinConfig(PORTE, 26, &config_led);
 
 
 	port_pin_config_t config_switch =
@@ -94,13 +99,18 @@ int main(void)
 	{ kGPIO_DigitalOutput, 1 };
 
 	GPIO_PinInit(GPIOB, 21, &led_config_gpio);
+	GPIO_PinInit(GPIOB, 22, &led_config_gpio);
+	GPIO_PinInit(GPIOE, 26, &led_config_gpio);
 
 	gpio_pin_config_t switch_config_gpio =
 	{ kGPIO_DigitalInput, 1 };
 
 	GPIO_PinInit(GPIOA, 4, &switch_config_gpio);
+	GPIO_PinInit(GPIOC, 6, &switch_config_gpio);
+
 
 	NVIC_EnableIRQ(PORTA_IRQn);
+	NVIC_EnableIRQ(PORTC_IRQn);
 
 	/* Force the counter to be placed into memory. */
 	volatile static int i = 0;
