@@ -40,22 +40,65 @@
 #include "fsl_debug_console.h"
 #include "fsl_port.h"
 #include "fsl_gpio.h"
+#include "fsl_pit.h"
 /* TODO: insert other include files here. */
 
 /* TODO: insert other definitions and declarations here. */
-
+	uint8_t color = 0;
+	uint8_t parar = 0;
+	uint8_t corrimiento = 0;
+	uint8_t valor = 1;
+	uint8_t delay = 0;
+	volatile bool pitIsrFlag = false;
 /*
  * @brief   Application entry point.
  */
 
 void PORTA_IRQHandler()
 {
-	static uint8_t state = 0;
-	PORT_ClearPinsInterruptFlags(PORTA, 1<<4);
 
-	GPIO_WritePinOutput(GPIOB,21,state);
-	state = ( 0 == state ) ? 1 : 0;
+	PORT_ClearPinsInterruptFlags(PORTA, 1<<4);
+	// Esta variable nos va a servir para tener un color fijo en la kinetis
+	parar = ( 0 == parar ) ? 1 : 0;
+
 }
+
+void PORTC_IRQHandler()
+{
+
+    PORT_ClearPinsInterruptFlags(PORTC, 1<<6);
+	// Esta variable nos servirá para determinar el patron de los colores
+	corrimiento = ( 0 == corrimiento ) ? 1 : 0;
+}
+
+void PIT0_IRQHandler(void)
+{
+    /* Clear interrupt flag.*/
+    PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);
+    pitIsrFlag = true;
+    if(0 == parar)
+    {
+    	if(0 == corrimiento)
+    	{
+    		valor++;
+    	}
+    	else
+    	{
+    		valor--;
+    	}
+    	if(0 == valor)
+    	{
+    		valor = 3;
+    	}
+    	if(4 == valor)
+		{
+			valor = 1;
+		}
+    	delay = 1;
+
+    }
+}
+
 
 int main(void)
 {
@@ -67,10 +110,23 @@ int main(void)
 	/* Init FSL debug console. */
 	BOARD_InitDebugConsole();
 
+
 	CLOCK_EnableClock(kCLOCK_PortA);
 	CLOCK_EnableClock(kCLOCK_PortB);
 	CLOCK_EnableClock(kCLOCK_PortC);
 	CLOCK_EnableClock(kCLOCK_PortE);
+
+	pit_config_t pitConfig;
+	PIT_GetDefaultConfig(&pitConfig);
+	PIT_Init(PIT, &pitConfig);
+	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, CLOCK_GetBusClkFreq());
+
+
+	PIT_EnableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
+	EnableIRQ(PIT0_IRQn);
+
+	PIT_StartTimer(PIT, kPIT_Chnl_0);
+
 
 	port_pin_config_t config_led =
 	{ kPORT_PullDisable, kPORT_SlowSlewRate, kPORT_PassiveFilterDisable,
@@ -90,6 +146,7 @@ int main(void)
 			kPORT_OpenDrainDisable, kPORT_LowDriveStrength, kPORT_MuxAsGpio,
 			kPORT_UnlockRegister};
 	PORT_SetPinInterruptConfig(PORTA, 4, kPORT_InterruptFallingEdge);
+	PORT_SetPinInterruptConfig(PORTC, 6, kPORT_InterruptFallingEdge);
 
 	PORT_SetPinConfig(PORTA, 4, &config_switch);
 	PORT_SetPinConfig(PORTC, 6, &config_switch);
@@ -112,17 +169,49 @@ int main(void)
 	NVIC_EnableIRQ(PORTA_IRQn);
 	NVIC_EnableIRQ(PORTC_IRQn);
 
+	NVIC_SetPriority(PORTA_IRQn, 1);
+	NVIC_SetPriority(PORTC_IRQn, 1);
+
+
 	/* Force the counter to be placed into memory. */
 	volatile static int i = 0;
 	/* Enter an infinite loop, just incrementing a counter. */
 
 	PRINTF("Hola mundo!");
 
-	GPIO_WritePinOutput(GPIOB,21,0);
+	GPIO_WritePinOutput(GPIOB,21,1);
+	GPIO_WritePinOutput(GPIOB,22,1);
+	GPIO_WritePinOutput(GPIOE,26,0);
 
 	while (1)
 	{
-		i++;
+		if(delay ==1 )
+		{
+			switch(valor)
+			{
+			case 1:
+				GPIO_WritePinOutput(GPIOB,21,1);
+				GPIO_WritePinOutput(GPIOB,22,0);
+				GPIO_WritePinOutput(GPIOE,26,1);
+
+			break;
+			case 2:
+				GPIO_WritePinOutput(GPIOB,21,1);
+				GPIO_WritePinOutput(GPIOB,22,1);
+				GPIO_WritePinOutput(GPIOE,26,0);
+
+			break;
+			case 3:
+				GPIO_WritePinOutput(GPIOB,21,0);
+				GPIO_WritePinOutput(GPIOB,22,1);
+				GPIO_WritePinOutput(GPIOE,26,1);
+
+			break;
+			default:
+			break;
+			}
+			delay = 0;
+		}
 	}
 	return 0;
 }
